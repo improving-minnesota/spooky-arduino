@@ -1,10 +1,4 @@
-# ir-led-control Specification
-
-## Purpose
-
-Lets the IR remote supplied with the kit control the board's onboard LED: each press of the remote's power button turns the LED on or off. It gives the project its first working input path — a remote command that produces an immediately visible response — and establishes the IR decoding behavior later remote-controlled features will reuse.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Remote power button toggles the onboard LED
 
@@ -35,20 +29,6 @@ The system SHALL toggle the board's onboard LED between on and off each time the
 - **WHEN** the board is powered with only the IR receiver attached and no external LED or resistor wired up
 - **THEN** the onboard LED still responds to the remote's power button
 
-### Requirement: Defined LED state at startup
-
-The system SHALL bring the LED up in a known, predictable state after power-on or reset, without requiring any remote input or host interaction, so the first button press always produces an observable change.
-
-#### Scenario: LED starts in the off state
-
-- **WHEN** the board is powered on or reset
-- **THEN** the onboard LED is off before any button is pressed
-
-#### Scenario: First press after startup turns the LED on
-
-- **WHEN** the board has just started and the remote's power button is pressed
-- **THEN** the LED turns on, confirming the remote is being decoded
-
 ### Requirement: Only the power button changes the LED state
 
 The system SHALL change the LED's steady on/off state only in response to the remote's power button. The remote's volume buttons SHALL NOT change the steady state; they adjust the configured timeout and preview it, as defined by the configurable-timeout capability. Presses of any other button, and IR noise from unrelated sources, SHALL NOT change the LED state.
@@ -68,33 +48,7 @@ The system SHALL change the LED's steady on/off state only in response to the re
 - **WHEN** the receiver picks up an IR signal that does not match a known remote button
 - **THEN** the LED state does not change and the board keeps running normally
 
-### Requirement: IR input is decoded without blocking the main loop
-
-The system SHALL keep decoding IR remote signals while continuing to run its main loop, so remote input stays responsive and does not stall the board.
-
-#### Scenario: Presses are registered while the loop keeps running
-
-- **WHEN** the board is running normally and the power button is pressed
-- **THEN** the press is decoded promptly and the LED responds, with the main loop never suspended for a long blocking delay
-
-#### Scenario: Repeated presses each register
-
-- **WHEN** the power button is pressed several times in quick succession
-- **THEN** each decoded press toggles the LED, so the final state reflects the number of presses
-
-### Requirement: Firmware builds and runs on the Uno R3 with the IR library
-
-The system SHALL build and run on the Arduino Uno R3 using the standard Arduino core plus the single IR-decoding library the project adopts, so it works on a machine with no other third-party libraries installed and fits within the board's limited flash and RAM.
-
-#### Scenario: Build with the required library installed
-
-- **WHEN** the sketch is compiled for the Uno R3 with the standard core and the IR-decoding library installed
-- **THEN** compilation succeeds with no missing-library errors and the reported flash and RAM usage stay well inside the board's limits
-
-#### Scenario: Upload to a connected board succeeds
-
-- **WHEN** a board is connected over USB and the compiled sketch is uploaded with the board and port selected
-- **THEN** the upload completes without error and the remote controls the LED immediately afterward
+## ADDED Requirements
 
 ### Requirement: Every kit-remote button is decoded and recorded
 
