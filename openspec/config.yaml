@@ -1,0 +1,41 @@
+schema: spec-driven
+
+# Project context (shown to the AI when creating artifacts, applying, and archiving).
+context: |
+  Spooky Arduino: a hands-on learning project exploring AI-assisted development
+  for physical devices. The goal is to generate and iteratively improve Arduino
+  firmware with AI, and to learn the capabilities and limits of AI for coding
+  and controlling hardware.
+
+  Tech stack: Arduino Uno R3 (Elegoo) or a compatible board, C++ on the Arduino
+  framework (Arduino IDE or arduino-cli). Add libraries only as needed, e.g.
+  IRremote for the IR remote and a DMX library for DMX512 output.
+
+  Hardware in play: PIR motion sensor, IR receiver with an IR remote, LEDs and
+  DMX-compatible lighting, a DSD Tech SH-RS09B USB-to-DMX adapter, and a
+  haze/bubble machine.
+
+  Domain: motion-triggered lighting (PIR -> LEDs), IR-remote control of LEDs
+  and configurable timing, and controlling/configuring external devices
+  (haze/bubble machine, DMX512 fixtures) from the remote.
+
+  Constraints: the Uno R3 has limited RAM/flash, a single hardware serial port,
+  and a limited set of PWM and interrupt-capable pins. Keep sketches small,
+  document pin assignments, and prefer non-blocking code (avoid long delay()
+  calls) so motion sensing and IR input stay responsive.
+
+# Per-artifact rules (added to that artifact's built-in guidance).
+rules:
+  design:
+    - State pin assignments, power requirements, and any Uno R3 resource limits the design relies on.
+    - Note which behaviors run in the main loop versus interrupts or timers.
+  tasks:
+    - Each task names the sketch file and the pins or hardware it touches.
+    - Keep tasks small and independently verifiable on the board.
+
+# Per-operation guidance (advisory, for apply and archive).
+operations:
+  apply:
+    guidance:
+      - Verify each sketch compiles before marking a task complete.
+      - Keep pin assignments centralized so they can change in one place.
