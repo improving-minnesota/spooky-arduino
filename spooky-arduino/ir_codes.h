@@ -5,8 +5,10 @@
 // IR codes for the Elegoo kit's 21-button remote.
 //
 // Every button transmits NEC with address 0x00 and a distinct command byte.
-// Codes were captured on hardware with IR_CAPTURE_MODE in the sketch (see
-// README.md for the capture procedure). Labels match this remote's silkscreen.
+// Codes were captured on hardware while the sketch still had a serial capture
+// mode; that mode is gone now, because DMX output owns the board's single
+// USART. Re-capturing would mean temporarily freeing the USART from DMX.
+// Labels match this remote's silkscreen.
 
 constexpr decode_type_t kRemoteProtocol = NEC;
 constexpr uint16_t kRemoteAddress = 0x00;

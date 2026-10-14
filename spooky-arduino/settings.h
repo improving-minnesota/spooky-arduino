@@ -2,11 +2,15 @@
 
 #include <Arduino.h>
 
-// LED-on timeout settings for spooky-arduino.
+#include "haze.h"
+
+// Settings for spooky-arduino, persisted in EEPROM so they survive power cycles.
 //
-// The timeout is a single value in whole seconds. It is adjustable only along
-// the "ladder" below (so a remote press always moves to a predictable value)
-// and is persisted in EEPROM so it survives power cycles.
+// The timeout is a single value in whole seconds, adjustable only along the
+// "ladder" below (so a remote press always moves to a predictable value).
+//
+// The haze machine's two settings sets are stored here too, so a blower speed,
+// a bubble toggle, a haze toggle, or a haze rate survives a reboot.
 
 constexpr uint16_t kDefaultTimeoutSec = 5;
 constexpr uint16_t kMinTimeoutSec = 1;
@@ -20,12 +24,15 @@ constexpr uint8_t kTimeoutLadderSize =
     sizeof(kTimeoutLadderSec) / sizeof(kTimeoutLadderSec[0]);
 
 // EEPROM layout. `magic` and `version` let the firmware detect a blank or
-// outdated store (a fresh chip reads 0xFF) and fall back to defaults.
+// outdated store (a fresh chip reads 0xFF) and fall back to defaults. The
+// version was bumped when the haze settings moved in, so an older store is
+// discarded rather than misread.
 constexpr uint16_t kSettingsMagic = 0x5A17;
-constexpr uint8_t kSettingsVersion = 1;
+constexpr uint8_t kSettingsVersion = 2;
 
 struct Settings {
   uint16_t magic;
   uint8_t version;
   uint16_t timeoutSec;
+  HazeState haze;
 };

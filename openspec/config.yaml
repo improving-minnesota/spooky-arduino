@@ -29,6 +29,8 @@ rules:
   design:
     - State pin assignments, power requirements, and any Uno R3 resource limits the design relies on.
     - Note which behaviors run in the main loop versus interrupts or timers.
+  specs:
+    - Reference existing patterns before inventing new ones
   tasks:
     - Each task names the sketch file and the pins or hardware it touches.
     - Keep tasks small and independently verifiable on the board.
