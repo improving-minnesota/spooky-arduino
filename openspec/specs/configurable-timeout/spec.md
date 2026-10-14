@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Owns the LED-on timeout: its default value, the range and step ladder it can be set to, how the remote's volume buttons change it, the on-LED preview that shows the new value, and its persistence across power cycles.
+Owns the effect duration: its default value, the ladder of reachable values, how the remote's volume buttons change it, the on-LED preview that shows the new value, and its persistence across power cycles. It no longer governs an LED-on timeout.
 
 ## Requirements
 

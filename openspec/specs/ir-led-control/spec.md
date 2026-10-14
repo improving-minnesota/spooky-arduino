@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Lets the IR remote supplied with the kit control the board's onboard LED: each press of the remote's power button turns the LED on or off. It gives the project its first working input path — a remote command that produces an immediately visible response — and establishes the IR decoding behavior later remote-controlled features will reuse.
+Lets the IR remote supplied with the kit control the device: the power button enables and disables it, and the onboard LED reports that enabled state. It gives the project its first working input path — a remote command that produces an immediately visible response — and establishes the IR decoding behavior the other remote-controlled features reuse.
 
 ## Requirements
 

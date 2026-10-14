@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Turns the onboard LED on when the HC-SR501 PIR sensor detects motion and turns it off after the configured timeout once motion is no longer present, giving the project its motion-triggered lighting behavior.
+Starts a randomly chosen effect when the HC-SR501 PIR sensor detects motion while the device is enabled, and extends a running effect while motion continues. The onboard LED reports the device's enabled state rather than motion.
 
 ## Requirements
 
