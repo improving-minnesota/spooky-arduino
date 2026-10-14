@@ -1,3 +1,9 @@
+> **Archive note (2026-10-14).** Historical record. The Impact section below says
+> the DSD Tech SH-RS09B "cannot monitor the bus" — it can. Its FT232R is set up
+> for FTDI auto-direction (`CBUS2 = TXDEN`), it reads the universe off the pair,
+> and the zero-byte result that claim rests on was a loose pin in its cable, now
+> resoldered. See `design.md` for the full note.
+
 ## Why
 
 `spooky-arduino` currently drives only the onboard LED; the project's actual lighting — a SHEHDS 8×12W RGBW beam bar and a Chauvet Hurricane Bubble Haze — is unreachable. Adding DMX512 output turns the firmware into a real controller: the IR remote becomes a lighting desk and the PIR becomes a scare trigger. It also adds the project's first end-to-end test path — a white-chase test pattern that makes a working DMX path obvious on the fixture itself — so wiring and signal integrity can be proven before anything consumes haze or bubble fluid.

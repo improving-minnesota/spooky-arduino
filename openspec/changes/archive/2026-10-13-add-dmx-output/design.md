@@ -1,3 +1,18 @@
+> **Archive note (2026-10-14).** This change is a historical record, kept as it
+> was written. Two of its bench findings were later overturned; the README holds
+> the current wiring.
+>
+> - Decision 10 says the DSD Tech SH-RS09B is output-only and cannot monitor the
+>   bus. It is not output-only: its FT232R is configured for FTDI auto-direction
+>   (`CBUS2 = TXDEN`), and with it listening it reads the full stream off the bus
+>   (about 22.6 kB/s) and decodes the intended channel values. The zero-byte
+>   result recorded below was a loose pin in the adapter's cable, now resoldered.
+>   The same note applies to the matching claim in `proposal.md`.
+> - Decision 11's series ground resistor has been removed. The interference on
+>   the bar's last light that it was meant to break came from that faulty
+>   connection rather than the ground loop, and the transceiver's ground is now
+>   direct.
+
 ## Context
 
 See `proposal.md` — Why for motivation, and `specs/` for the behavior this must satisfy.
@@ -12,7 +27,7 @@ Constraints that shape the approach:
 - **Existing dependency**: `IRremote` owns Timer2 for receive sampling on AVR.
 - **Single USART**: `D0`/`D1` are the only hardware serial pins, and on the Uno R3 the USB-serial converter (ATmega16U2) is wired to those same pins, so a sketch that owns the USART for DMX cannot use the USB serial monitor.
 - **DMX512 protocol**: 250 kbaud, 8N2, a break of ≥88 µs and a mark-after-break of ≥8 µs before the start code, then up to 512 channel bytes; the frame repeats continuously.
-- **New hardware**: a MAX485 (or equivalent) transceiver, the SHEHDS 8×12W RGBW beam bar, the Chauvet Hurricane Bubble Haze, and a DSD Tech SH-RS09B USB-to-DMX adapter — which testing showed to be output-only, so it cannot serve as the bus monitor (see Decision 10).
+- **New hardware**: a MAX485 (or equivalent) transceiver, the SHEHDS 8×12W RGBW beam bar, the Chauvet Hurricane Bubble Haze, and a DSD Tech SH-RS09B USB-to-DMX adapter — which testing showed to be output-only, so it cannot serve as the bus monitor (see Decision 10). *(Superseded 2026-10-14: the adapter does read the bus; see the archive note at the top of this file.)*
 
 ## Goals / Non-Goals
 
@@ -130,6 +145,8 @@ The primary check is the fixture itself: run the show and watch it. A `HAZE_BENC
 
 **The SH-RS09B cannot be used for this, and must not be left on the bus.** It is a DMX *controller* cable — FTDI FT232RL plus a MAX485, the same architecture ENTTEC describes as "output only" — and it delivered no bytes at all in testing: 250000, 115200, 9600, and 4800 baud, every RTS/DTR combination, its own transmitter looped back, and even a slow 9600-baud text pattern driven through the same MAX485. Its receiver path simply is not available. Worse, its driver is permanently enabled, so with it connected the beam bar showed random colours and horizontal movement; the correct colours appeared only once the adapter was removed from the pair. It contends with the Arduino's driver and garbles the stream. Channel-level readback therefore needs a genuinely bidirectional USB-RS485 adapter — a CP2102/CH340 dongle with an auto-direction transceiver such as the MAX13487 — and the script is written for that.
 
+> **Superseded 2026-10-14:** the adapter does read the bus; see the archive note at the top of this file.
+
 QLC+ was considered because fixtures may exist for these devices, but its DMX-USB input modes target specific DMX-USB protocols; QLC+ remains a useful reference for the fixtures' channel semantics.
 
 ### 11. Pin assignments and power
@@ -179,7 +196,7 @@ One subtlety cost a bug on the bench: the staging copy must **persist between pa
 - **Generic USB-RS485 adapter may not expose the DMX break** → the monitor resyncs on the start code `0x00` and is documented as a passive read, not a conformance tester.
 - **Long-press detection in a non-blocking loop** → a slow press could be misread; use a clear three-second threshold and treat any earlier release as a single press.
 - **Random effects can look chaotic** → constrain every effect's motion to the idle-to-ceiling band, avoid immediate repeats, and keep intensity/speed tied to the settings so the operator can tame them.
-- **A USB-to-DMX *controller* cable cannot monitor the bus** → the SH-RS09B is output-only; verification relies on the white-chase test pattern on the fixture, and channel-level readback needs a bidirectional USB-RS485 adapter.
+- **A USB-to-DMX *controller* cable cannot monitor the bus** → the SH-RS09B is output-only; verification relies on the white-chase test pattern on the fixture, and channel-level readback needs a bidirectional USB-RS485 adapter. *(Superseded 2026-10-14: the SH-RS09B does monitor the bus; see the archive note at the top of this file.)*
 
 - **Animated effects still land mid-frame** → the commit is atomic, so a frame is never torn *within* a write, but an effect that animates on every loop pass can still have its channels published between two of the transmit interrupt's reads. A frame can therefore blend two adjacent animation steps. The values are close, so it is not visible; publishing exactly once per frame would need a frame-boundary hook that `DMXSerial` does not expose.
 
