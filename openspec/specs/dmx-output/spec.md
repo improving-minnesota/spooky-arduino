@@ -139,6 +139,11 @@ wiring and signal checking.
 - **WHEN** the firmware sets a known pattern and a compliant receiver decodes the universe
 - **THEN** the values it reports match the intended channel values
 
+#### Scenario: A monitor on the bus reads the same values
+
+- **WHEN** a USB-RS485 adapter listens on the DMX path while the firmware transmits
+- **THEN** it reads the continuous stream and decodes the same channel values the fixture is being sent
+
 #### Scenario: A wiring fault is visible
 
 - **WHEN** the DMX path is wired incorrectly

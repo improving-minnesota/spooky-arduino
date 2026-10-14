@@ -2,28 +2,27 @@
 """Read the DMX512 universe that spooky-arduino transmits, from the end of the
 DMX path.
 
-Wiring: a **bidirectional** USB-RS485 adapter sits at the end of the DMX line
-(A/B to the pair, common to the adapter's ground) and shows up on the Mac as a
-USB serial port. A CP2102/CH340 dongle with an auto-direction transceiver (for
-example the MAX13487) works; a USB-to-DMX *controller* cable does not — the DSD
-Tech SH-RS09B is FT232RL + MAX485 and receives nothing at all.
+Wiring: a USB-RS485 adapter sits at the end of the DMX line (A/B to the pair,
+common to the adapter's ground) and shows up on the Mac as a USB serial port.
+To listen, the adapter's receiver-enable must be active while the bus is idle.
 
-If you have no such adapter, skip this and use the fixture: flash the white
-chase test pattern and watch the beam bar.
+The DSD Tech SH-RS09B works for this. It is FT232R + MAX485, and its FT232R is
+configured for FTDI auto-direction (CBUS2 = TXDEN), so its driver is not
+permanently enabled and its receiver is active whenever it is not transmitting.
+It reads the full stream off the bus - about 22.6 kB/s, the 250 kbaud limit.
 
-This script reads the adapter as a passive listener and prints the channel
-values the firmware is putting on the bus.
-
-It is a passive read, not a conformance tester. The firmware sends a full
-512-channel universe, so every frame ends in a long run of zero channels; the
-script resynchronises on that run and on the DMX start code, rather than relying
-on the adapter reporting the break.
+If the adapter delivers no bytes at all, the fault is upstream of it: nothing is
+driving the pair, or the pair is not reaching the adapter. Run --raw or --watch
+to see the raw byte count before trusting any framing; a loose pin in a
+connector reads as total silence, not as garbage.
 
 Usage:
     python3 tools/dmx_monitor.py --list
-    python3 tools/dmx_monitor.py /dev/cu.wchusbserial1234
-    python3 tools/dmx_monitor.py /dev/cu.wchusbserial1234 --once
-    python3 tools/dmx_monitor.py /dev/cu.wchusbserial1234 --all
+    python3 tools/dmx_monitor.py /dev/cu.usbserial-B0037A1S
+    python3 tools/dmx_monitor.py /dev/cu.usbserial-B0037A1S --once
+    python3 tools/dmx_monitor.py /dev/cu.usbserial-B0037A1S --all
+    python3 tools/dmx_monitor.py /dev/cu.usbserial-B0037A1S --raw --seconds 3
+    python3 tools/dmx_monitor.py /dev/cu.usbserial-B0037A1S --watch
 """
 
 import argparse
@@ -52,6 +51,7 @@ TAIL_ZERO_FRACTION = 0.9
 # between its idle and ceiling positions, and the channel is preceded by the
 # DMX start code. Together those identify a frame start even when a UART has
 # emitted a stray non-zero byte for the break just before it.
+PRECEDING_ZEROS = 60
 BEAM_IDLE_MIN = 40
 BEAM_CEILING_MAX = 120
 START_CODE = 0
@@ -130,8 +130,13 @@ def find_frame_start(buffer):
     if limit < 1:
         return None
     for exact in (True, False):
-        for index in range(limit):
+        for index in range(PRECEDING_ZEROS, limit):
             if buffer[index] != START_CODE:
+                continue
+            # A real frame start follows the previous frame's unused zero tail
+            # (a stray break byte may sit just before the start code). A later
+            # channel, such as the blower on 41, has channel 1 shortly before it.
+            if any(buffer[index - PRECEDING_ZEROS : index - 1]):
                 continue
             ch1 = buffer[index + 1]
             if exact:
@@ -144,17 +149,22 @@ def find_frame_start(buffer):
     return None
 
 
-def frame_reader(ser, once, deadline=None):
+def frame_reader(ser, once, deadline=None, stats=None):
     """Yield one 42-byte fixture frame each time a frame can be framed.
 
     In `once` mode it keeps reading until `deadline`: opening the port resets
     the board, so the first reads can be empty while it boots.
+
+    `stats`, when given, counts every raw byte read so a caller can tell "no
+    frames" apart from "no bytes at all".
     """
     buffer = bytearray()
     while True:
         chunk = ser.read(max(1, ser.in_waiting or 1))
         if chunk:
             buffer.extend(chunk)
+            if stats is not None:
+                stats["bytes"] += len(chunk)
         elif once and (deadline is None or time.monotonic() > deadline):
             return
 
@@ -185,6 +195,60 @@ def print_frame(frame, show_all):
         print("  (all fixture channels are 0 - blackout)")
 
 
+def raw_probe(ser, seconds):
+    """Report the raw byte stream, with no framing assumptions.
+
+    This is the first thing to run when the monitor shows nothing: it separates
+    "no bytes at all" (nothing is reaching the adapter) from "bytes but no
+    frame" (a framing or content problem).
+    """
+    print(f"raw listen on {ser.port} at {DMX_BAUD} baud, 8N2 for {seconds:g}s")
+    ser.reset_input_buffer()
+    buffer = bytearray()
+    start = time.monotonic()
+    while time.monotonic() - start < seconds:
+        chunk = ser.read(ser.in_waiting or 1)
+        if chunk:
+            buffer.extend(chunk)
+    rate = len(buffer) / seconds
+    print(f"received {len(buffer)} bytes ({rate:.0f} B/s)")
+    if not buffer:
+        print("no bytes at all: the adapter's receive pin never toggled.")
+        print("  - check the pair reaches the adapter (cable, gender changer),")
+        print("  - that something is driving the bus, and")
+        print("  - that the adapter's receiver is enabled.")
+        return 1
+    print(
+        f"distinct values: {len(set(buffer))}, "
+        f"zeros: {buffer.count(0)} ({100 * buffer.count(0) / len(buffer):.1f}%)"
+    )
+    print(f"first {min(64, len(buffer))} bytes: {buffer[:64].hex(' ')}")
+    return 0
+
+
+def watch(ser, interval=1.0):
+    """Print the raw byte rate once a second, until interrupted.
+
+    Useful while working on the wiring: the moment the pair starts reaching the
+    adapter, the count leaves zero.
+    """
+    print(f"watching {ser.port} at {DMX_BAUD} baud, 8N2 (Ctrl-C to stop)")
+    ser.reset_input_buffer()
+    total = 0
+    try:
+        while True:
+            count = 0
+            start = time.monotonic()
+            while time.monotonic() - start < interval:
+                chunk = ser.read(ser.in_waiting or 1)
+                count += len(chunk)
+            total += count
+            print(f"  {time.strftime('%H:%M:%S')}  {count:>7} B/s   total {total}")
+    except KeyboardInterrupt:
+        print("\nstopped")
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("port", nargs="?", help="serial port of the DMX adapter")
@@ -192,6 +256,22 @@ def main():
     parser.add_argument("--once", action="store_true", help="print one frame and exit")
     parser.add_argument(
         "--all", action="store_true", help="print every fixture channel, zero or not"
+    )
+    parser.add_argument(
+        "--raw",
+        action="store_true",
+        help="report the raw byte stream without framing, then exit",
+    )
+    parser.add_argument(
+        "--watch",
+        action="store_true",
+        help="print the raw byte rate once a second until stopped",
+    )
+    parser.add_argument(
+        "--seconds",
+        type=float,
+        default=None,
+        help="how long to listen (default 3s with --raw, 6s with --once)",
     )
     args = parser.parse_args()
 
@@ -209,13 +289,23 @@ def main():
         sys.exit(f"could not open {args.port}: {error}")
 
     with ser:
+        if args.watch:
+            return watch(ser)
+        if args.raw:
+            return raw_probe(ser, args.seconds or 3.0)
+
         print(f"listening on {args.port} at {DMX_BAUD} baud, 8N2")
         if args.once:
-            deadline = time.monotonic() + 6.0
-            for frame in frame_reader(ser, once=True, deadline=deadline):
+            stats = {"bytes": 0}
+            deadline = time.monotonic() + (args.seconds or 6.0)
+            for frame in frame_reader(ser, once=True, deadline=deadline, stats=stats):
                 print_frame(frame, args.all)
                 return 0
-            print("no complete DMX frame seen")
+            if stats["bytes"]:
+                print(f"read {stats['bytes']} bytes but no complete DMX frame seen")
+            else:
+                print("no bytes at all - nothing is reaching the adapter")
+                print("  (run with --raw for the raw byte report)")
             return 1
 
         last_frame = None

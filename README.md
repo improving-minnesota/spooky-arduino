@@ -72,21 +72,28 @@ the PIR sensor:
   set the trigger jumper to repeatable. The sensitivity trimpot turned clockwise
   increases the detection range (about 3 m to 7 m).
 - **MAX485 (or equivalent) RS-485 transceiver** — `VCC` → `5V`, `GND` → `GND`
-  through the ground resistor below, `DI` (driver input) → `D1`, `DE` and `RE`
-  tied together → `D5`. Leave `RO` (receiver output) unconnected; the board only
-  transmits. This board is the DMX **controlling node**. The module in use is
-  auto-direction and ignores the direction pin, but the pin is still assigned so
-  the library never falls back to its default of `D2`.
-- **Ground, and the ground loop.** The host's USB ground, the board, the DMX
-  cable's common, and the haze machine's mains earth form a loop, and the
-  machine's pump and heater couple noise into the bar's last light through it —
-  visible only when the machine is powered and running. The arrangement that
-  clears it: a **resistor (about 100 Ω) in series between the board's ground and
-  the transceiver's ground**, with the **DMX cable's common (pin 1) tied directly
-  to the board's ground**. Keep the resistor small and check the drop across it
-  stays well under 0.2 V, since it sits in the path the transceiver's supply
-  current returns through.
-- **A 120 Ω terminator is fitted across the pair (XLR pins 2 and 3)**, as the DMX controlling node should have. An earlier attempt appeared to break the signal, but that was a connection rather than the resistor.
+  directly, `DI` (driver input) → `D1`, `DE` and `RE` tied together → `D5`.
+  Leave `RO` (receiver output) unconnected; the board only transmits. This board
+  is the DMX **controlling node**. The module in use is auto-direction and
+  ignores the direction pin, but the pin is still assigned so the library never
+  falls back to its default of `D2`.
+- **Ground.** The transceiver's ground is tied **directly** to the board's
+  ground, and the DMX cable's common (pin 1) to the same point. An earlier build
+  put a series resistor (about 100 Ω) between the board's ground and the
+  transceiver's ground, to break the loop that the host's USB ground, the board,
+  the cable common, and the haze machine's mains earth form. That resistor has
+  been **removed**: the interference on the bar's last light that prompted it was
+  the faulty cable connection below, not the loop, and with the connection sound
+  the direct ground runs clean. An isolated transceiver (ADM2483/ADM2587) or a
+  USB isolator remains the durable fix should the loop ever couple noise in.
+- **A 120 Ω terminator is fitted across the pair (XLR pins 2 and 3)**, as the DMX
+  controlling node should have. An earlier attempt appeared to break the signal,
+  but that was a connection rather than the resistor.
+- **Check the cable before blaming anything else.** A single loose pin in a DMX
+  connector reads as total silence — the fixture does nothing and a monitor sees
+  zero bytes — and is easy to blame on the adapter or the ground. One pin in this
+  build's adapter cable came loose and was resoldered; with that, the terminator,
+  and the direct ground, the bus runs clean end to end.
 - Both fixtures are mains-powered independently and are never powered from the
   board. Haze and bubble fluids are consumables — use the `play/pause` master
   enable to silence the machine while testing the lights.
@@ -233,20 +240,28 @@ The USB serial monitor is unavailable — `DMXSerial` owns the board's single
 hardware USART, which is the same port the Uno's USB-serial converter is wired
 to — so board-side logging cannot be used while DMX runs.
 
-`tools/dmx_monitor.py` reads the universe off the bus instead, but it needs a
-**bidirectional** USB-RS485 adapter (a CP2102/CH340 dongle with an auto-direction
-transceiver such as the MAX13487). A USB-to-DMX *controller* cable will not do,
-and should not be left on the bus: the DSD Tech SH-RS09B is FT232RL + MAX485
-with its driver permanently enabled, so it receives nothing *and* contends with
-the Arduino's driver, garbling the stream (the beam bar shows random colours
-until it is unplugged).
+`tools/dmx_monitor.py` reads the universe off the bus instead, and the DSD Tech
+SH-RS09B works for it. The adapter is FT232R + MAX485, and its FT232R is
+configured for FTDI auto-direction (`CBUS2 = TXDEN`), so its driver is not
+permanently enabled and its receiver is active whenever it is not transmitting.
+Confirmed on the bench: it reads the full stream off the bus — about 22.6 kB/s,
+the 250 kbaud limit — and decodes the frames to the same channel values the
+fixture is being sent.
 
 ```
 python3 -m pip install pyserial
 python3 tools/dmx_monitor.py --list
-python3 tools/dmx_monitor.py /dev/cu.wchusbserial1234
-python3 tools/dmx_monitor.py /dev/cu.wchusbserial1234 --once --all
+python3 tools/dmx_monitor.py /dev/cu.usbserial-B0037A1S
+python3 tools/dmx_monitor.py /dev/cu.usbserial-B0037A1S --once --all
+python3 tools/dmx_monitor.py /dev/cu.usbserial-B0037A1S --raw --seconds 3
+python3 tools/dmx_monitor.py /dev/cu.usbserial-B0037A1S --watch
 ```
+
+`--raw` reports the raw byte count with no framing, and `--watch` prints the
+byte rate once a second; both are for working on the wiring. A fault there reads
+as **no bytes at all**, not as garbage, so check the count first — a single loose
+pin in a connector looks exactly like a dead adapter, and cost a wrong diagnosis
+once already (see the wiring notes above).
 
 The monitor is a passive read, not a conformance tester. It resynchronises on
 the long run of zero channels at the end of each frame rather than relying on
