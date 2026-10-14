@@ -6,48 +6,51 @@ Turns the onboard LED on when the HC-SR501 PIR sensor detects motion and turns i
 
 ## Requirements
 
-### Requirement: Motion turns the LED on
+### Requirement: Motion starts an effect
 
-The system SHALL turn the onboard LED on when the PIR sensor reports motion.
+The system SHALL treat a PIR motion event as an event that starts a randomly
+chosen effect while the device is enabled. Motion SHALL NOT turn the onboard LED
+on, and SHALL do nothing while the device is disabled. Motion continuing while an
+effect is running SHALL keep that effect running and extend its deadline, rather
+than starting another.
 
-#### Scenario: LED turns on when motion is detected
+#### Scenario: Motion starts an effect while the device is enabled
 
-- **WHEN** the LED is off and motion is detected
-- **THEN** the onboard LED turns on
+- **WHEN** the device is enabled and a motion event occurs
+- **THEN** a randomly chosen effect starts
 
-#### Scenario: Motion while already on keeps the LED on
+#### Scenario: Motion does not turn the LED on
 
-- **WHEN** the LED is on and further motion is detected
-- **THEN** the LED stays on and its timeout restarts
+- **WHEN** motion occurs
+- **THEN** the onboard LED does not change, because it reports the device's enabled state
 
-### Requirement: LED turns off after the configured timeout with no motion
+#### Scenario: Continued motion extends the running effect
 
-The system SHALL turn the LED off once the configured timeout has elapsed with no motion. The timeout SHALL be the value held by the configurable-timeout capability.
+- **WHEN** motion continues while an effect is running
+- **THEN** that effect keeps running and its deadline is extended
 
-#### Scenario: LED turns off after motion stops
+#### Scenario: Motion while the device is disabled does nothing
 
-- **WHEN** motion stops and the configured timeout elapses
-- **THEN** the onboard LED turns off
-
-#### Scenario: Continued motion extends the timeout
-
-- **WHEN** motion is detected again before the timeout elapses
-- **THEN** the timeout restarts and the LED stays on
+- **WHEN** the device is disabled and motion occurs
+- **THEN** no effect starts and nothing changes
 
 ### Requirement: Motion sensing does not block the main loop
 
-The system SHALL detect motion and run the timeout without suspending the main loop, so remote input stays responsive.
+The system SHALL detect motion without suspending the main loop, so remote input
+and effect updates stay responsive.
 
 #### Scenario: Remote input stays responsive during motion
 
-- **WHEN** the LED is on from motion
+- **WHEN** motion is detected
 - **THEN** remote button presses are still decoded and acted on promptly
 
-### Requirement: Sensor warm-up does not trigger the LED
+### Requirement: Sensor warm-up does not trigger an effect
 
-The system SHALL ignore the PIR sensor's output for a warm-up period after power-on or reset, so sensor initialization does not spuriously turn the LED on.
+The system SHALL ignore the PIR sensor's output for a warm-up period after
+power-on or reset, so sensor initialization does not spuriously start an effect
+or light the LED.
 
 #### Scenario: No spurious activation during warm-up
 
 - **WHEN** the board is powered on or reset
-- **THEN** the LED does not turn on from the sensor until the warm-up period completes
+- **THEN** the sensor starts no effect until the warm-up period completes

@@ -6,67 +6,105 @@ Lets the IR remote supplied with the kit control the board's onboard LED: each p
 
 ## Requirements
 
-### Requirement: Remote power button toggles the onboard LED
+### Requirement: Remote power button enables and disables the device
 
-The system SHALL toggle the board's onboard LED between on and off each time the remote's power button is pressed. When the LED is off, a press SHALL turn it on for the configured timeout, after which it SHALL turn off automatically unless another activation occurs. When the LED is on, a press SHALL turn it off immediately and keep it off until the next activation (motion or another power press). No external LED or additional wiring beyond the IR receiver SHALL be required.
+The system SHALL toggle the device between enabled and disabled each time the
+remote's power button is pressed. While the device is disabled everything is
+silent and the PIR is ignored; while it is enabled the device is on and awaiting
+or running an effect. The onboard LED SHALL report that state. No external LED or
+additional wiring beyond the IR receiver SHALL be required.
 
-#### Scenario: LED turns on when it is off
+#### Scenario: The device is enabled from disabled
 
-- **WHEN** the LED is off and the remote's power button is pressed once
-- **THEN** the onboard LED turns on and stays on for the configured timeout
+- **WHEN** the device is disabled and the remote's power button is pressed once
+- **THEN** the device is enabled, the onboard LED comes on, and an effect starts
 
-#### Scenario: LED turns off when it is on
+#### Scenario: The device is disabled from enabled
 
-- **WHEN** the LED is on and the remote's power button is pressed once
-- **THEN** the onboard LED turns off immediately and stays off until the next activation
+- **WHEN** the device is enabled and the remote's power button is pressed once
+- **THEN** the device is disabled, everything goes silent, and the onboard LED goes off
 
-#### Scenario: Power-on activation times out
+#### Scenario: Enabling works from either enabled state
 
-- **WHEN** the power button turns the LED on and no further activation occurs
-- **THEN** the LED turns off after the configured timeout, rather than staying on indefinitely
-
-#### Scenario: State persists between presses
-
-- **WHEN** the LED has been turned on by the power button and no further activation occurs
-- **THEN** the LED stays on until the configured timeout elapses and then turns off, and that off state persists until the next activation
+- **WHEN** the device is enabled and idle, and the power button is pressed
+- **THEN** the device is disabled, rather than starting another effect
 
 #### Scenario: No external components required for the LED
 
 - **WHEN** the board is powered with only the IR receiver attached and no external LED or resistor wired up
-- **THEN** the onboard LED still responds to the remote's power button
+- **THEN** the onboard LED still reports the device's state in response to the remote's power button
 
-### Requirement: Defined LED state at startup
+### Requirement: Defined state at startup
 
-The system SHALL bring the LED up in a known, predictable state after power-on or reset, without requiring any remote input or host interaction, so the first button press always produces an observable change.
+The system SHALL bring the device up in a known, predictable state after
+power-on or reset, without requiring any remote input or host interaction, so the
+show begins on its own. At startup the device SHALL be **enabled**, the onboard
+LED SHALL be on, and an effect SHALL already be running.
 
-#### Scenario: LED starts in the off state
+#### Scenario: The device starts enabled and running
 
 - **WHEN** the board is powered on or reset
-- **THEN** the onboard LED is off before any button is pressed
+- **THEN** the device is enabled, the onboard LED is on, and an effect is running before any button is pressed
 
-#### Scenario: First press after startup turns the LED on
+#### Scenario: The power button still stops it
 
 - **WHEN** the board has just started and the remote's power button is pressed
-- **THEN** the LED turns on, confirming the remote is being decoded
+- **THEN** the device is disabled and the onboard LED goes off
 
-### Requirement: Only the power button changes the LED state
+### Requirement: Only the power button changes the device's enabled state
 
-The system SHALL change the LED's steady on/off state only in response to the remote's power button. The remote's volume buttons SHALL NOT change the steady state; they adjust the configured timeout and preview it, as defined by the configurable-timeout capability. Presses of any other button, and IR noise from unrelated sources, SHALL NOT change the LED state.
+The system SHALL change the device's enabled state only in response to the
+remote's power button. The remote's other buttons act on the effects and the haze
+machine and SHALL NOT change the enabled state. IR noise from unrelated sources
+SHALL NOT change it.
 
-#### Scenario: Other buttons are ignored
+#### Scenario: Other buttons do not change the enabled state
 
-- **WHEN** any button other than power or volume is pressed while the LED is on or off
-- **THEN** the LED state does not change
+- **WHEN** any button other than power is pressed while the device is enabled or disabled
+- **THEN** the device's enabled state does not change, though the button's own function may take effect
 
-#### Scenario: Volume buttons do not change the steady state
+#### Scenario: Volume buttons do not change the enabled state
 
 - **WHEN** a volume button is pressed
-- **THEN** the steady on/off state is unchanged and only the timeout is adjusted and previewed
+- **THEN** the enabled state is unchanged and only the effect duration is adjusted and previewed
 
 #### Scenario: Unrecognized IR signals are ignored
 
 - **WHEN** the receiver picks up an IR signal that does not match a known remote button
-- **THEN** the LED state does not change and the board keeps running normally
+- **THEN** the enabled state does not change and the board keeps running normally
+
+### Requirement: Onboard LED indicates the device status
+
+The system SHALL use the onboard LED as the device's status light. It SHALL be on
+whenever the device is enabled — whether an effect is running or the fixture is
+idle and dark — and off while the device is disabled. The duration preview and
+bubble cleaning mode SHALL overlay that indication, and no indication SHALL
+change the enabled state.
+
+#### Scenario: The LED reports the enabled state
+
+- **WHEN** the device is enabled
+- **THEN** the onboard LED is on, whether an effect is running or the fixture is idle
+
+#### Scenario: The LED reports the disabled state
+
+- **WHEN** the device is disabled
+- **THEN** the onboard LED is off
+
+#### Scenario: A preview overlays the indication
+
+- **WHEN** the effect duration is changed
+- **THEN** the LED shows the preview and then returns to reporting the enabled state, without changing that state
+
+#### Scenario: Cleaning mode flashes the LED
+
+- **WHEN** bubble cleaning mode is active
+- **THEN** the LED flashes to show the mode
+
+#### Scenario: Indications never change the enabled state
+
+- **WHEN** any status indication is shown
+- **THEN** the device's enabled state is unchanged
 
 ### Requirement: IR input is decoded without blocking the main loop
 
@@ -82,19 +120,28 @@ The system SHALL keep decoding IR remote signals while continuing to run its mai
 - **WHEN** the power button is pressed several times in quick succession
 - **THEN** each decoded press toggles the LED, so the final state reflects the number of presses
 
-### Requirement: Firmware builds and runs on the Uno R3 with the IR library
+### Requirement: Firmware builds and runs on the Uno R3 with the IR and DMX libraries
 
-The system SHALL build and run on the Arduino Uno R3 using the standard Arduino core plus the single IR-decoding library the project adopts, so it works on a machine with no other third-party libraries installed and fits within the board's limited flash and RAM.
+The system SHALL build and run on the Arduino Uno R3 using the standard Arduino
+core plus the IR-decoding library and the DMX library the project adopts, and
+SHALL fit within the board's limited flash and RAM. Because DMX output owns the
+board's single hardware USART, the USB serial monitor SHALL NOT be required for
+normal operation.
 
 #### Scenario: Build with the required library installed
 
-- **WHEN** the sketch is compiled for the Uno R3 with the standard core and the IR-decoding library installed
-- **THEN** compilation succeeds with no missing-library errors and the reported flash and RAM usage stay well inside the board's limits
+- **WHEN** the sketch is compiled for the Uno R3 with the standard core, the IR-decoding library, and the DMX library installed
+- **THEN** compilation succeeds with no missing-library errors and the reported flash and RAM usage stay inside the board's limits
 
 #### Scenario: Upload to a connected board succeeds
 
 - **WHEN** a board is connected over USB and the compiled sketch is uploaded with the board and port selected
-- **THEN** the upload completes without error and the remote controls the LED immediately afterward
+- **THEN** the upload completes without error and the remote controls the device immediately afterward
+
+#### Scenario: No USB serial monitor is needed
+
+- **WHEN** the firmware runs in normal operation
+- **THEN** it does not depend on the USB serial monitor, which is unavailable while DMX output transmits
 
 ### Requirement: Every kit-remote button is decoded and recorded
 
